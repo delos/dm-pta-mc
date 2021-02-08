@@ -176,9 +176,7 @@ def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None):
 
             rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
 
-            form_func = form(r_cl / rv, profile['c']) * np.heaviside(rv - r_cl, 0) + np.heaviside(
-                r_cl - rv, 0
-            )  # (N)
+            form_func = np.where(r_cl<rv, form(r_cl / rv, profile['c']), 1)  # (N)
 
             bd_term = prefactor * form_func * bd_term
             vd_term = prefactor * form_func * vd_term
@@ -258,9 +256,7 @@ def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None):
 
             rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
 
-            form_func = form(r_cl / rv, profile['c']) * np.heaviside(rv - r_cl, 0) + np.heaviside(
-                r_cl - rv, 0
-            )
+            form_func = np.where(r_cl<rv, form(r_cl / rv, profile['c']), 1)  # (N)
 
             sig = form_func * sig
     else:

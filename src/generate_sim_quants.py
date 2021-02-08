@@ -209,8 +209,8 @@ def get_M_min(HMF_path, num_density):
     num_density_pc = num_density / (1e9)  # pc^-3
 
     # read the halo mass function, from high mass to low mass
-    mass = np.flip(np.loadtxt(HMF_path, delimiter=",")[:, 0])  # solar mass
-    hmf = np.flip(np.loadtxt(HMF_path, delimiter=",")[:, 1])  # pc^-3
+    mass = np.loadtxt(HMF_path, delimiter=",")[::-1, 0]  # solar mass
+    hmf = np.loadtxt(HMF_path, delimiter=",")[::-1, 1]  # pc^-3
 
     # number density of halos (pc^-3) with M < mass < M_max
     num_density_halo_M = np.zeros(len(mass))
