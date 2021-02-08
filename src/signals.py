@@ -28,15 +28,15 @@ def subtract_signal(t, signal, fit_params=3):
 
 def dphi_dop_chunked(
     t,
-    mass,
+    profile,
     r0_vec,
     v_vec,
     d_hat,
     use_form=False,
-    conc=0,
     use_chunk=False,
     chunk_size=10000,
     verbose=False,
+    form_fun=None,
 ):
     """
 
@@ -45,7 +45,7 @@ def dphi_dop_chunked(
 
     """
 
-    num_objects = len(mass)
+    num_objects = len(list(profile.items())[0][1]) # number of elements of 1st dict entry
 
     dphi = np.zeros(len(t))
 
@@ -62,31 +62,33 @@ def dphi_dop_chunked(
 
         for i in range(num_chunks):
 
-            mass_c = mass[i * chunk_size : (i + 1) * chunk_size]
             r0_c = r0_vec[i * chunk_size : (i + 1) * chunk_size]
             v_c = v_vec[i * chunk_size : (i + 1) * chunk_size]
-            conc_c = conc[i * chunk_size : (i + 1) * chunk_size]
+
+            profile_c = {}
+            for key in list(profile):
+                profile_c[key] = profile[key][i * chunk_size : (i + 1) * chunk_size]
 
             dphi += dphi_dop(
-                t, mass_c, r0_c, v_c, d_hat, use_form=use_form, conc=conc_c
+                t, profile_c, r0_c, v_c, d_hat, use_form=use_form, form_fun=form_fun
             )
     else:
 
-        dphi += dphi_dop(t, mass, r0_vec, v_vec, d_hat, use_form=use_form, conc=conc)
+        dphi += dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=use_form, form_fun=form_fun)
 
     return dphi
 
 
 def dphi_dop_chunked_vec(
     t,
-    mass,
+    profile,
     r0_vec,
     v_vec,
     use_form=False,
-    conc=0,
     use_chunk=False,
     chunk_size=10000,
     verbose=False,
+    form_fun=None,
 ):
     """
 
@@ -95,7 +97,7 @@ def dphi_dop_chunked_vec(
 
     """
 
-    num_objects = len(mass)
+    num_objects = len(list(profile.items())[0][1]) # number of elements of 1st dict entry
 
     dphi_vec = np.zeros((len(t), 3))
 
@@ -112,22 +114,24 @@ def dphi_dop_chunked_vec(
 
         for i in range(num_chunks):
 
-            mass_c = mass[i * chunk_size : (i + 1) * chunk_size]
             r0_c = r0_vec[i * chunk_size : (i + 1) * chunk_size]
             v_c = v_vec[i * chunk_size : (i + 1) * chunk_size]
-            conc_c = conc[i * chunk_size : (i + 1) * chunk_size]
+
+            profile_c = {}
+            for key in list(profile):
+                profile_c[key] = profile[key][i * chunk_size : (i + 1) * chunk_size]
 
             dphi_vec += dphi_dop_vec(
-                t, mass_c, r0_c, v_c, use_form=use_form, conc=conc_c
+                t, profile_c, r0_c, v_c, use_form=use_form, form_fun=form_fun
             )
     else:
 
-        dphi_vec += dphi_dop_vec(t, mass, r0_vec, v_vec, use_form=use_form, conc=conc)
+        dphi_vec += dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=use_form, form_fun=form_fun)
 
     return dphi_vec
 
 
-def dphi_dop_vec(t, mass, r0_vec, v_vec, use_form=False, conc=0):
+def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None):
     """
 
     Returns the vector phase shift due to the Doppler delay for subhalos of mass, mass.
@@ -158,29 +162,44 @@ def dphi_dop_vec(t, mass, r0_vec, v_vec, use_form=False, conc=0):
     prefactor = (
         const.yr_to_s
         * const.GN
-        * mass
         / (const.km_s_to_kpc_yr * const.c_light * np.square(v_mag))
     )
 
-    if use_form:
+    if 'M' in list(profile):
+        prefactor *= profile['M']
 
-        t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
-        x_cl = (t_cl - t0) / tau
-        r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+        if use_form:
 
-        rv = ((3 * mass / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
+            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+            x_cl = (t_cl - t0) / tau
+            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
 
-        form_func = form(r_cl / rv, conc) * np.heaviside(rv - r_cl, 0) + np.heaviside(
-            r_cl - rv, 0
-        )  # (N)
+            rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
 
-        bd_term = prefactor * form_func * bd_term
-        vd_term = prefactor * form_func * vd_term
+            form_func = form(r_cl / rv, profile['c']) * np.heaviside(rv - r_cl, 0) + np.heaviside(
+                r_cl - rv, 0
+            )  # (N)
 
+            bd_term = prefactor * form_func * bd_term
+            vd_term = prefactor * form_func * vd_term
+
+        else:
+
+            bd_term = prefactor * bd_term
+            vd_term = prefactor * vd_term
     else:
+        if form_fun is not None:
+            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+            x_cl = (t_cl - t0) / tau
+            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+            
+            form_func = form_fun(r_cl, profile['rs'], profile['rhos'])
 
-        bd_term = prefactor * bd_term
-        vd_term = prefactor * vd_term
+            bd_term = prefactor * form_func * bd_term
+            vd_term = prefactor * form_func * vd_term
+
+        else:
+            raise ValueError('rho_s, r_s halo description currently requires custom density profile ("USE_FORMTAB")')
 
     # sum the signal over all the events
     sig = np.einsum("to, oi -> ti", bd_term, b_hat) - np.einsum(
@@ -190,7 +209,7 @@ def dphi_dop_vec(t, mass, r0_vec, v_vec, use_form=False, conc=0):
     return sig
 
 
-def dphi_dop(t, mass, r0_vec, v_vec, d_hat, use_form=False, conc=0):
+def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None):
     """
 
     Returns the phase shift due to the Doppler delay for subhalos of mass, mass
@@ -225,25 +244,39 @@ def dphi_dop(t, mass, r0_vec, v_vec, d_hat, use_form=False, conc=0):
     prefactor = (
         const.yr_to_s
         * const.GN
-        * mass
         / (const.km_s_to_kpc_yr * const.c_light * np.square(v_mag))
     )
 
+    if 'M' in list(profile):
+        prefactor *= profile['M']
+
+        if use_form:
+
+            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+            x_cl = (t_cl - t0) / tau
+            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+
+            rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
+
+            form_func = form(r_cl / rv, profile['c']) * np.heaviside(rv - r_cl, 0) + np.heaviside(
+                r_cl - rv, 0
+            )
+
+            sig = form_func * sig
+    else:
+        if form_fun is not None:
+            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+            x_cl = (t_cl - t0) / tau
+            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+            
+            form_func = form_fun(r_cl, profile['rs'], profile['rhos'])
+
+            sig = form_func * sig
+
+        else:
+            raise ValueError('rho_s, r_s halo description currently requires custom density profile ("USE_FORMTAB")')
+
     sig = prefactor * sig
-
-    if use_form:
-
-        t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
-        x_cl = (t_cl - t0) / tau
-        r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
-
-        rv = ((3 * mass / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
-
-        form_func = form(r_cl / rv, conc) * np.heaviside(rv - r_cl, 0) + np.heaviside(
-            r_cl - rv, 0
-        )
-
-        sig = form_func * sig
 
     # sum the signal over all the events
     return np.sum(sig, axis=-1)
@@ -252,3 +285,4 @@ def dphi_dop(t, mass, r0_vec, v_vec, d_hat, use_form=False, conc=0):
 def form(s, c):
 
     return (np.log(1 + c * s) - c * s / (1 + c * s)) / (np.log(1 + c) - c / (1 + c))
+

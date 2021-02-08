@@ -104,6 +104,7 @@ def set_num_objects(
     HMF_path="",
     log10_M_min=-12,
     min_num_object=1,
+    number_density=0.,
     verbose=False,
 ):
     """
@@ -112,9 +113,12 @@ def set_num_objects(
 
     volume = (4 * np.pi / 3) * (max_R ** 3)
 
-    if not use_HMF:
-
-        num_density = (10 ** log10_f) * (const.rho_DM) / (10 ** log10_M)
+    if number_density > 0. or not use_HMF:
+        
+        if number_density > 0.:
+            num_density = number_density
+        else:
+            num_density = (10 ** log10_f) * (const.rho_DM) / (10 ** log10_M)
         log10_final_m_min = log10_M_min
 
         if int(volume * num_density) < min_num_object:
@@ -223,3 +227,12 @@ def get_M_min(HMF_path, num_density):
     else:
         # find the first M (from high M) such that n within M < mass < M_max is greater than num_density_pc
         return mass[np.argmax(num_density_halo_M > num_density_pc)]
+
+def sample_halos(rho_s, r_s, v, num_object):
+
+    # sample num_object halos from the full list (rho_s, r_s, v)
+
+    size = np.size(rho_s)
+    indices = np.random.choice(size, num_object)
+
+    return rho_s[indices], r_s[indices], v[indices]

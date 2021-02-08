@@ -7,13 +7,14 @@ from mpi4py import MPI
 import sys
 
 from src.os_util import my_mkdir
-from src.input_parser import get_input_variables, get_c_list
+from src.input_parser import get_input_variables, get_c_list, read_halos
 import src.parallel_util as put
 from src.snr import opt_pulsar_snr
 import src.signals as signals
 import src.snr as snr
 import src.generate_sim_quants as gsq
 import src.constants as const
+import src.profile as profile
 
 #####
 
@@ -108,8 +109,20 @@ else:
     HMF_path=in_dict["HMF_PATH"],
     log10_M_min=in_dict["LOG10_M_MIN"],
     min_num_object=in_dict["MIN_NUM_OBJECT"],
+    number_density=in_dict["N_MSUN_PER_KPC3"],
     verbose=verbose,
 )
+
+# custom density profiles
+if in_dict["USE_FORMTAB"]:
+    form_fun = profile.prepare_form(in_dict["FORM_PATH"])
+
+# list of halos
+if in_dict["USE_HALOLIST"]:
+    rhos_full, rs_full, v_full = read_halos("HALO_PATH")
+    v_full *= const.km_s_to_kpc_yr
+    if not in_dict["USE_FORMTAB"]:
+        raise ValueError('USE_HALOLIST currently requires custom density profile ("USE_FORMTAB")')
 
 # generate positions of pulsars (same across all universes)
 dhat_list = gsq.gen_dhats(in_dict["NUM_PULSAR"])
@@ -149,34 +162,43 @@ for job in range(len(job_list_recv)):
 
                 r0_list = gsq.gen_positions(max_R, num_objects)
 
-                v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
+                if in_dict["HALO_LIST"]:
 
-                mass_list = gsq.gen_masses(
-                    num_objects,
-                    use_HMF=in_dict["USE_HMF"],
-                    log10_M=in_dict["LOG10_M"],
-                    HMF_path=in_dict["HMF_PATH"],
-                    log10_M_min=log10_M_min,
-                )
+                    rhos_list, rs_list, v_list = sample_halos(rhos_full, rs_full, v_full, num_objects)
 
-                conc_list = get_c_list(
-                    mass_list,
-                    in_dict["USE_FORM"],
-                    in_dict["USE_CM"],
-                    c=in_dict["C"],
-                    cM_path=in_dict["CM_PATH"],
-                )
+                    profile_list = {'rs':rs_list, 'rhos':rhos_list}
+
+                else:
+
+                    v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
+
+                    mass_list = gsq.gen_masses(
+                        num_objects,
+                        use_HMF=in_dict["USE_HMF"],
+                        log10_M=in_dict["LOG10_M"],
+                        HMF_path=in_dict["HMF_PATH"],
+                        log10_M_min=log10_M_min,
+                    )
+
+                    conc_list = get_c_list(
+                        mass_list,
+                        in_dict["USE_FORM"],
+                        in_dict["USE_CM"],
+                        c=in_dict["C"],
+                        cM_path=in_dict["CM_PATH"],
+                    )
+
+                    profile_list = {'M':mass_list, 'c':conc_list}
 
                 d_hat = dhat_list[pul]
 
                 dphi = signals.dphi_dop_chunked(
                     t_grid_yr,
-                    mass_list,
+                    profile_list,
                     r0_list,
                     v_list,
                     d_hat,
                     use_form=in_dict["USE_FORM"],
-                    conc=conc_list,
                     use_chunk=in_dict["USE_CHUNK"],
                     chunk_size=in_dict["CHUNK_SIZE"],
                 )
@@ -205,31 +227,40 @@ for job in range(len(job_list_recv)):
 
             r0_list = gsq.gen_positions(max_R, num_objects)
 
-            v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
+            if in_dict["HALO_LIST"]:
 
-            mass_list = gsq.gen_masses(
-                num_objects,
-                use_HMF=in_dict["USE_HMF"],
-                log10_M=in_dict["LOG10_M"],
-                HMF_path=in_dict["HMF_PATH"],
-                log10_M_min=log10_M_min,
-            )
+                rhos_list, rs_list, v_list = sample_halos(rhos_full, rs_full, v_full, num_objects)
 
-            conc_list = get_c_list(
-                mass_list,
-                in_dict["USE_FORM"],
-                in_dict["USE_CM"],
-                c=in_dict["C"],
-                cM_path=in_dict["CM_PATH"],
-            )
+                profile_list = {'rs':rs_list, 'rhos':rhos_list}
+
+            else:
+
+                v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
+
+                mass_list = gsq.gen_masses(
+                    num_objects,
+                    use_HMF=in_dict["USE_HMF"],
+                    log10_M=in_dict["LOG10_M"],
+                    HMF_path=in_dict["HMF_PATH"],
+                    log10_M_min=log10_M_min,
+                )
+
+                conc_list = get_c_list(
+                    mass_list,
+                    in_dict["USE_FORM"],
+                    in_dict["USE_CM"],
+                    c=in_dict["C"],
+                    cM_path=in_dict["CM_PATH"],
+                )
+
+                profile_list = {'M':mass_list, 'c':conc_list}
 
             dphi_vec = signals.dphi_dop_chunked_vec(
                 t_grid_yr,
-                mass_list,
+                profile_list,
                 r0_list,
                 v_list,
                 use_form=in_dict["USE_FORM"],
-                conc=conc_list,
                 use_chunk=in_dict["USE_CHUNK"],
                 chunk_size=in_dict["CHUNK_SIZE"],
             )  # (Nt, 3)

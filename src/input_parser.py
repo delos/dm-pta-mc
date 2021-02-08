@@ -4,6 +4,26 @@
 
 import numpy as np
 
+int_params = ["NUM_UNIVERSE", "NUM_PULSAR", "MIN_NUM_OBJECT", "CHUNK_SIZE"]
+float_params = [
+        "LOG10_F",
+        "LOG10_M",
+        "T_YR",
+        "DT_WEEK",
+        "T_RMS_NS",
+        "R_FACTOR",
+        "LOG10_M_MIN",
+        "C",
+        "PERCENT_CLOSEST",
+        "V_0_KM_PER_SEC",
+        "V_ESC_KM_PER_SEC",
+        "V_E_KM_PER_SEC",
+        "V_BAR_KM_PER_SEC",
+        "N_MSUN_PER_KPC3",
+        ]
+bool_params = ["USE_HMF", "USE_FORM", "USE_CM", "USE_CLOSEST", "USE_CHUNK", "USE_HALOLIST", "USE_FORMTAB"]
+str_params = ["HMF_PATH","CM_PATH","OUTPUT_DIR","CALC_TYPE","RUN_DESCRIP","FORM_PATH","HALO_PATH"]
+
 
 def get_c_list(mass_list, use_form, use_cM, c=100, cM_path=""):
     """
@@ -34,6 +54,28 @@ def get_c_list(mass_list, use_form, use_cM, c=100, cM_path=""):
 
     return c_list
 
+def read_halos(path):
+    """
+
+    Reads a list of halos with columns:
+    rho_s (Msun/kpc^3), r_s (kpc), v (km/s)
+
+    """
+
+    data = np.loadtxt(path)
+    return data[:,0], data[:,1], data[:,2]
+
+def read_form(path):
+    """
+
+    Reads form factor table with columns:
+    x/r_s, M*F(x)/(rho_s*r_s^3)
+    
+    """
+
+    data = np.loadtxt(path)
+    return data[:,0], data[:,1]
+
 
 def get_input_variables(filename):
     """
@@ -54,37 +96,29 @@ def get_input_variables(filename):
 
     in_dict = {}
 
-    for key in params:
-
-        if key in ["NUM_UNIVERSE", "NUM_PULSAR", "MIN_NUM_OBJECT", "CHUNK_SIZE"]:
-
+    for key in int_params:
+        try:
             in_dict[key] = to_int(params[key])
+        except KeyError:
+            in_dict[key] = 0
 
-        elif key in [
-            "LOG10_F",
-            "LOG10_M",
-            "T_YR",
-            "DT_WEEK",
-            "T_RMS_NS",
-            "R_FACTOR",
-            "LOG10_M_MIN",
-            "C",
-            "PERCENT_CLOSEST",
-            "V_0_KM_PER_SEC",
-            "V_ESC_KM_PER_SEC",
-            "V_E_KM_PER_SEC",
-            "V_BAR_KM_PER_SEC",
-        ]:
-
+    for key in float_params:
+        try:
             in_dict[key] = to_float(params[key])
-
-        elif key in ["USE_HMF", "USE_FORM", "USE_CM", "USE_CLOSEST", "USE_CHUNK"]:
-
+        except KeyError:
+            in_dict[key] = 0.
+    
+    for key in bool_params:
+        try:
             in_dict[key] = to_bool(params[key])
+        except KeyError:
+            in_dict[key] = False
 
-        else:
-
+    for key in str_params:
+        try:
             in_dict[key] = params[key]
+        except KeyError:
+            in_dict[key] = ""
 
     return in_dict
 
