@@ -309,6 +309,10 @@ if proc_id == root_process:
         + ".txt",
         "w",
     )
+        
+    for key in in_dict:
+
+        file.write("# " + key + " : " + str(in_dict[key]) + '\n')
 
     for i in range(n_proc):
         for j in range(len(all_snr_list[i])):
