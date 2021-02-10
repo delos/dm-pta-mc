@@ -16,6 +16,7 @@ def gen_dhats(num_pulsar):
     """
 
     Returns a list of vectors giving the positions of the pulsars on the sphere
+    uniformly distributed on sphere
 
     """
 
@@ -35,6 +36,7 @@ def gen_positions(max_R, num_object):
     """
 
     Generates a list of positions
+    uniformly distributed inside sphere
 
     """
 
@@ -58,6 +60,7 @@ def gen_velocities(v_0, v_Esc, v_E, num_object):
     """
 
     Generates a list of velocities
+    isotropic gaussian (maxwell in speed) cut off at escape velocity
 
     """
 
@@ -121,7 +124,7 @@ def set_num_objects(
             num_density = (10 ** log10_f) * (const.rho_DM) / (10 ** log10_M)
         log10_final_m_min = log10_M_min
 
-        if int(volume * num_density) < min_num_object:
+        if int(volume * num_density + .5) < min_num_object:
 
             num_object = min_num_object
 
@@ -129,14 +132,14 @@ def set_num_objects(
 
                 print("!!! Warning !!!")
                 print(
-                    "    Physical number of subhalos, n x V is less than min_num_object."
+                    "    Physical number of subhalos, n x V = %d is less than min_num_object."%int(volume * num_density + .5)
                 )
                 print("    Setting the number of subhalos to " + str(num_object))
                 print()
 
         else:
 
-            num_object = int(volume * num_density)
+            num_object = int(volume * num_density + .5)
 
     else:
 
@@ -154,9 +157,13 @@ def set_num_objects(
 
     # calculate the new volume using the final number of halos
     volume = num_object / num_density  # kpc^3
-    max_R = (3 * volume / (4 * np.pi)) ** (1 / 3)  # kpc
+    max_R_new = (3 * volume / (4 * np.pi)) ** (1 / 3)  # kpc
 
-    return [num_object, max_R, log10_final_m_min]
+    if verbose and max_R_new > 1.01*max_R:
+
+        print("    Simulation radius increased by factor %.2f\n"%(max_R_new/max_R))
+
+    return [num_object, max_R_new, log10_final_m_min]
 
 
 def mass_dist(HMF_path, m_min):
@@ -230,9 +237,30 @@ def get_M_min(HMF_path, num_density):
 
 def sample_halos(rho_s, r_s, v, num_object):
 
-    # sample num_object halos from the full list (rho_s, r_s, v)
+    """
+
+    Sample num_object halos from the full list (rho_s, r_s, v)
+    if v is scalar, sample direction isotropically
+
+    """
 
     size = np.size(rho_s)
     indices = np.random.choice(size, num_object)
+    
+    if len(np.shape(v)) == 1:
 
-    return rho_s[indices], r_s[indices], v[indices]
+        velocity_r = v[indices]
+        velocity_theta = np.arccos(1 - 2 * np.random.rand(num_object))
+        velocity_phi = 2 * np.pi * np.random.rand(num_object)
+
+        velocity = np.zeros((3, num_object))
+        velocity[0] = velocity_r * np.sin(velocity_theta) * np.cos(velocity_phi)
+        velocity[1] = velocity_r * np.sin(velocity_theta) * np.sin(velocity_phi)
+        velocity[2] = velocity_r * np.cos(velocity_theta)
+
+        return rho_s[indices], r_s[indices], velocity.T
+
+    else:
+
+        return rho_s[indices], r_s[indices], v[indices]
+

@@ -130,7 +130,7 @@ if in_dict["USE_FORMTAB"]:
 
 # list of halos
 if in_dict["USE_HALOLIST"]:
-    rhos_full, rs_full, v_full = read_halos("HALO_PATH")
+    rhos_full, rs_full, v_full = read_halos(in_dict["HALO_PATH"])
     v_full *= const.km_s_to_kpc_yr
     if not in_dict["USE_FORMTAB"]:
         raise ValueError('USE_HALOLIST currently requires custom density profile ("USE_FORMTAB")')
@@ -175,7 +175,7 @@ for job in range(len(job_list_recv)):
 
                 if in_dict["USE_HALOLIST"]:
 
-                    rhos_list, rs_list, v_list = sample_halos(rhos_full, rs_full, v_full, num_objects)
+                    rhos_list, rs_list, v_list = gsq.sample_halos(rhos_full, rs_full, v_full, num_objects)
 
                     profile_list = {'rs':rs_list, 'rhos':rhos_list}
 
@@ -212,6 +212,7 @@ for job in range(len(job_list_recv)):
                     use_form=in_dict["USE_FORM"],
                     use_chunk=in_dict["USE_CHUNK"],
                     chunk_size=in_dict["CHUNK_SIZE"],
+                    form_fun=form_fun,
                 )
 
                 ht = signals.subtract_signal(t_grid, dphi)
@@ -240,7 +241,7 @@ for job in range(len(job_list_recv)):
 
             if in_dict["USE_HALOLIST"]:
 
-                rhos_list, rs_list, v_list = sample_halos(rhos_full, rs_full, v_full, num_objects)
+                rhos_list, rs_list, v_list = gsq.sample_halos(rhos_full, rs_full, v_full, num_objects)
 
                 profile_list = {'rs':rs_list, 'rhos':rhos_list}
 
@@ -274,6 +275,7 @@ for job in range(len(job_list_recv)):
                 use_form=in_dict["USE_FORM"],
                 use_chunk=in_dict["USE_CHUNK"],
                 chunk_size=in_dict["CHUNK_SIZE"],
+                form_fun=form_fun,
             )  # (Nt, 3)
 
             ht_list = np.zeros((in_dict["NUM_PULSAR"], Nt))

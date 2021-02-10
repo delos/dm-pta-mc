@@ -27,7 +27,7 @@ def prepare_form(form_path):
 
         return np.exp(np.piecewise(
             logx,
-            [logx<logF[-1],logx>=logx_[-1]],
+            [logx<logF_[-1],logx>=logx_[-1]],
             [log_interp,lambda x: logF_[-1]],
             )) * rho_s * r_s**3
 
