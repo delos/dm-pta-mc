@@ -85,6 +85,17 @@ if proc_id == root_process:
 dt = const.week_to_s * in_dict["DT_WEEK"]
 obs_T = const.yr_to_s * in_dict["T_YR"]
 
+# random seed
+try:
+    # set seed deterministically
+    seed = int(in_dict["SEED"])
+except:
+    # set seed randomly
+    # probably not needed, but here just in case
+    # different processes start in the same state
+    seed = np.frombuffer(np.random.bytes(4), dtype='>u4')[0]
+np.random.seed(seed + proc_id)
+
 # number of time points
 Nt = int(obs_T / dt)
 t_grid = np.linspace(0, dt * Nt, num=Nt, endpoint=False)
@@ -162,7 +173,7 @@ for job in range(len(job_list_recv)):
 
                 r0_list = gsq.gen_positions(max_R, num_objects)
 
-                if in_dict["HALO_LIST"]:
+                if in_dict["USE_HALOLIST"]:
 
                     rhos_list, rs_list, v_list = sample_halos(rhos_full, rs_full, v_full, num_objects)
 
@@ -227,7 +238,7 @@ for job in range(len(job_list_recv)):
 
             r0_list = gsq.gen_positions(max_R, num_objects)
 
-            if in_dict["HALO_LIST"]:
+            if in_dict["USE_HALOLIST"]:
 
                 rhos_list, rs_list, v_list = sample_halos(rhos_full, rs_full, v_full, num_objects)
 

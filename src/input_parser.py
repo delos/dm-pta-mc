@@ -22,7 +22,7 @@ float_params = [
         "N_MSUN_PER_KPC3",
         ]
 bool_params = ["USE_HMF", "USE_FORM", "USE_CM", "USE_CLOSEST", "USE_CHUNK", "USE_HALOLIST", "USE_FORMTAB"]
-str_params = ["HMF_PATH","CM_PATH","OUTPUT_DIR","CALC_TYPE","RUN_DESCRIP","FORM_PATH","HALO_PATH"]
+str_params = ["HMF_PATH","CM_PATH","OUTPUT_DIR","CALC_TYPE","RUN_DESCRIP","FORM_PATH","HALO_PATH","SEED"]
 
 
 def get_c_list(mass_list, use_form, use_cM, c=100, cM_path=""):

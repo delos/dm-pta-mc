@@ -39,21 +39,22 @@ for filename in filenames:
                     if line.lstrip().split(' ')[1] == 'NUM_PULSAR':
                         NP = int(line.lstrip().split(' ')[3])
                         break
-
-            sigma = sigma_from_p(p_from_snr_earth(np.percentile(snr,10)))
+            snr = np.percentile(snr,10)
+            sigma = sigma_from_p(p_from_snr_earth(snr, NP))
         else:
             calc = 'pulsar'
             NU = len(np.unique(universe))
             NP = len(np.unique(pulsar))
             snr.shape = (NU,NP)
             snr = snr.max(axis=1) # max over pulsars
-            sigma = sigma_from_p(p_from_snr_pulsar(np.percentile(snr,10), NP))
+            snr = np.percentile(snr,10)
+            sigma = sigma_from_p(p_from_snr_pulsar(snr, NP))
         
         with open(argv[1] + "/sigma.txt", "at") as fp:
             fp.write("%s , %f\n"%(basename(filename),sigma))
     except Exception as e:
         continue
 
-    print("%s : %s, %d universes, %d pulsars"%(filename, calc, NU, NP))
+    print("%s : %s, %d universes, %s pulsars; SNR=%f; sigma=%f"%(filename, calc, NU, str(NP),snr,sigma))
 
 print("wrote to sigma.txt")
