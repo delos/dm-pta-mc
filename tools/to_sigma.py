@@ -4,16 +4,45 @@ import numpy as np
 from sys import argv
 from glob import glob
 from os.path import basename
-from scipy.special import gammainc, erf, erfinv
+from scipy.special import gammainc, erf, erfcinv
 
+# basic functions
 def sigma_from_p(p):
-    return np.sqrt(2) * erfinv(1 - 2*p)
+    return np.sqrt(2) * erfcinv(2*p)
 
 def p_from_snr_earth(snr, NP=np.inf):
     return 1. - gammainc(0.5, np.sqrt(2*(1 - 1./NP)) * snr)
 
 def p_from_snr_pulsar(snr, NP):
     return 1. - erf(snr/np.sqrt(2))**NP
+
+# sigma for pulsar calculation  
+
+def sigma_p_s(snr,N):
+  return sigma_from_p(p_from_snr_pulsar(snr,N))
+  
+def sigma_p_m(snr,N):
+  x = snr/np.sqrt(2)
+  return np.sqrt(2) * erfcinv(2*N * np.exp(-x**2) / (x * np.sqrt(np.pi)))
+
+def sigma_p_l(snr,N):
+  L1 = snr**2 + 2*np.log(snr/N)
+  L2 = np.log(L1)
+  W = L1 - L2 + L2/L1 + L2*(-2+L2)/(2*L1**2) + L2*(6-9*L2+2*L2**2)/(6*L1**3) + L2*(-12+36*L2-22*L2**2+3*L2**3)/(12*L1**4)
+  return np.sqrt(W)
+
+def sigma_p(snr,N):
+  return np.piecewise(snr,[snr<7.5,(snr>=7.5)&(snr<=36),snr>36],[
+                      lambda s: sigma_p_s(s,N),
+                      lambda s: sigma_p_m(s,N),
+                      lambda s: sigma_p_l(s,N),
+                      ])
+
+# sigma for earth calculation
+
+def sigma_e(snr,N):
+  return sigma_from_p(p_from_snr_earth(snr, N))
+
 
 if len(argv) < 2:
     raise ValueError("python script.py <directory>")
@@ -40,7 +69,7 @@ for filename in filenames:
                         NP = int(line.lstrip().split(' ')[3])
                         break
             snr = np.percentile(snr,10)
-            sigma = sigma_from_p(p_from_snr_earth(snr, NP))
+            sigma = sigma_e(snr, NP)
         else:
             calc = 'pulsar'
             NU = len(np.unique(universe))
@@ -48,7 +77,7 @@ for filename in filenames:
             snr.shape = (NU,NP)
             snr = snr.max(axis=1) # max over pulsars
             snr = np.percentile(snr,10)
-            sigma = sigma_from_p(p_from_snr_pulsar(snr, NP))
+            sigma = sigma_p(snr, NP)
         
         with open(argv[1] + "/sigma.txt", "at") as fp:
             fp.write("%s , %f\n"%(basename(filename),sigma))

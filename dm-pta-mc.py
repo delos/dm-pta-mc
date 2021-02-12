@@ -307,21 +307,15 @@ all_snr_list = comm.gather(snr_list, root=root_process)
 # write to output file
 if proc_id == root_process:
 
+    output_file = in_dict["OUTPUT_DIR"] + "/snr_" + in_dict["CALC_TYPE"] + "_" + in_dict["RUN_DESCRIP"] + ".txt"
     print("Done returning data!")
     print()
-    print("Writing data to output file...")
+    print("Writing data to output file:")
+    print(output_file)
 
     my_mkdir(in_dict["OUTPUT_DIR"])
 
-    file = open(
-        in_dict["OUTPUT_DIR"]
-        + "snr_"
-        + in_dict["CALC_TYPE"]
-        + "_"
-        + in_dict["RUN_DESCRIP"]
-        + ".txt",
-        "w",
-    )
+    file = open(output_file,"w",)
         
     for key in in_dict:
 
