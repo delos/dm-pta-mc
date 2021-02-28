@@ -3,6 +3,7 @@
 """
 
 import numpy as np
+from time import time
 
 import src.constants as const
 
@@ -37,6 +38,7 @@ def dphi_dop_chunked(
     chunk_size=10000,
     verbose=False,
     form_fun=None,
+    time_end=np.inf,
 ):
     """
 
@@ -51,16 +53,18 @@ def dphi_dop_chunked(
 
     if use_chunk == True:
 
-        if verbose:
-            print("   Chunking data ... ")
-            print()
-
         if num_objects % chunk_size == 0:
             num_chunks = num_objects // chunk_size
         else:
             num_chunks = num_objects // chunk_size + 1
 
+        if verbose:
+            print("   Chunking data (%d chunks) ... "%num_chunks)
+            print()
+
         for i in range(num_chunks):
+            
+            if time() > time_end: raise TimeoutError
 
             r0_c = r0_vec[i * chunk_size : (i + 1) * chunk_size]
             v_c = v_vec[i * chunk_size : (i + 1) * chunk_size]
@@ -89,6 +93,7 @@ def dphi_dop_chunked_vec(
     chunk_size=10000,
     verbose=False,
     form_fun=None,
+    time_end=np.inf,
 ):
     """
 
@@ -113,6 +118,8 @@ def dphi_dop_chunked_vec(
             num_chunks = num_objects // chunk_size + 1
 
         for i in range(num_chunks):
+            
+            if time() > time_end: raise TimeoutError
 
             r0_c = r0_vec[i * chunk_size : (i + 1) * chunk_size]
             v_c = v_vec[i * chunk_size : (i + 1) * chunk_size]

@@ -20,6 +20,7 @@ float_params = [
         "V_E_KM_PER_SEC",
         "V_BAR_KM_PER_SEC",
         "N_MSUN_PER_KPC3",
+        "TIMELIMIT_HOUR",
         ]
 bool_params = ["USE_HMF", "USE_FORM", "USE_CM", "USE_CLOSEST", "USE_CHUNK", "USE_HALOLIST", "USE_FORMTAB"]
 str_params = ["HMF_PATH","CM_PATH","OUTPUT_DIR","CALC_TYPE","RUN_DESCRIP","FORM_PATH","HALO_PATH","SEED"]

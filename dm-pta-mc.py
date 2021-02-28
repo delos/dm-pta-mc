@@ -5,6 +5,7 @@
 import numpy as np
 from mpi4py import MPI
 import sys
+from time import time
 
 from src.os_util import my_mkdir
 from src.input_parser import get_input_variables, get_c_list, read_halos
@@ -30,6 +31,9 @@ proc_id = comm.Get_rank()
 # ID of main processor
 root_process = 0
 
+# get start time
+time_start = time()
+
 if proc_id == root_process:
 
     print("--- DM - PTA - MC ---")
@@ -42,6 +46,7 @@ if proc_id == root_process:
     print()
     print("Reading input file...")
     print()
+    sys.stdout.flush()
 
 in_filename = sys.argv[-1]
 in_dict = get_input_variables(in_filename)
@@ -59,6 +64,7 @@ if proc_id == root_process:
     print()
     print("---")
     print()
+    sys.stdout.flush()
 
 # tell ehich processors what to compute for
 job_list = None
@@ -81,9 +87,16 @@ if proc_id == root_process:
 
     print("    Determining simulation variables...")
     print()
+    sys.stdout.flush()
 
 dt = const.week_to_s * in_dict["DT_WEEK"]
 obs_T = const.yr_to_s * in_dict["T_YR"]
+
+# time limit for run
+if in_dict["TIMELIMIT_HOUR"] > 0:
+  time_end = time_start + in_dict["TIMELIMIT_HOUR"]*3600.
+else:
+  time_end = np.inf
 
 # random seed
 try:
@@ -140,6 +153,7 @@ dhat_list = gsq.gen_dhats(in_dict["NUM_PULSAR"])
 
 if proc_id == root_process:
 
+    print("    Random seed                            = " + str(seed))
     print("    Number of time points                  = " + str(Nt))
     print("    Number of subhalos per pulsar/earth    = " + str(num_objects))
     print("    Radius of simulation sphere            = " + str(max_R) + " kpc")
@@ -152,6 +166,7 @@ if proc_id == root_process:
 
     print("---")
     print()
+    sys.stdout.flush()
 
 snr_list = []
 
@@ -159,17 +174,91 @@ for job in range(len(job_list_recv)):
 
     if job_list_recv[job, 0] != -1:
 
-        uni_id = job_list_recv[job, 0]
+        try:
 
-        if in_dict["CALC_TYPE"] == "pulsar":
+            uni_id = job_list_recv[job, 0]
 
-            if proc_id == root_process and job == 0:
+            if in_dict["CALC_TYPE"] == "pulsar":
 
-                print("Starting PULSAR term calculation...")
-                print()
-                print("    Generating signals and computing optimal pulsar SNR...")
+                if proc_id == root_process and job == 0:
 
-            for pul in range(in_dict["NUM_PULSAR"]):
+                    print("Starting PULSAR term calculation...")
+                    print()
+                    print("    Generating signals and computing optimal pulsar SNR...")
+                    sys.stdout.flush()
+
+                for pul in range(in_dict["NUM_PULSAR"]):
+                    
+                    if time() > time_end: raise TimeoutError
+
+                    r0_list = gsq.gen_positions(max_R, num_objects)
+
+                    if in_dict["USE_HALOLIST"]:
+
+                        rhos_list, rs_list, v_list = gsq.sample_halos(rhos_full, rs_full, v_full, num_objects)
+
+                        profile_list = {'rs':rs_list, 'rhos':rhos_list}
+
+                    else:
+
+                        v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
+
+                        mass_list = gsq.gen_masses(
+                            num_objects,
+                            use_HMF=in_dict["USE_HMF"],
+                            log10_M=in_dict["LOG10_M"],
+                            HMF_path=in_dict["HMF_PATH"],
+                            log10_M_min=log10_M_min,
+                        )
+
+                        conc_list = get_c_list(
+                            mass_list,
+                            in_dict["USE_FORM"],
+                            in_dict["USE_CM"],
+                            c=in_dict["C"],
+                            cM_path=in_dict["CM_PATH"],
+                        )
+
+                        profile_list = {'M':mass_list, 'c':conc_list}
+
+                    d_hat = dhat_list[pul]
+
+                    dphi = signals.dphi_dop_chunked(
+                        t_grid_yr,
+                        profile_list,
+                        r0_list,
+                        v_list,
+                        d_hat,
+                        use_form=in_dict["USE_FORM"],
+                        use_chunk=in_dict["USE_CHUNK"],
+                        chunk_size=in_dict["CHUNK_SIZE"],
+                        form_fun=form_fun,
+                        time_end=time_end,
+                    )
+
+                    ht = signals.subtract_signal(t_grid, dphi)
+
+                    snr_val = snr.opt_pulsar_snr(
+                        ht, in_dict["T_RMS_NS"], in_dict["DT_WEEK"]
+                    )
+
+                    snr_list.append([uni_id, pul, snr_val])
+
+                if proc_id == root_process and job == len(job_list_recv) - 1:
+                    print("    Done computing SNR!")
+                    print()
+                    print("Returning data to main processor...")
+                    print()
+                    sys.stdout.flush()
+
+            if in_dict["CALC_TYPE"] == "earth":
+
+                if proc_id == root_process:
+
+                    print("Starting EARTH term calculation...")
+                    print()
+                    print("    Generating signals and computing optimal Earth SNR...")
+                    sys.stdout.flush()
 
                 r0_list = gsq.gen_positions(max_R, num_objects)
 
@@ -201,105 +290,47 @@ for job in range(len(job_list_recv)):
 
                     profile_list = {'M':mass_list, 'c':conc_list}
 
-                d_hat = dhat_list[pul]
-
-                dphi = signals.dphi_dop_chunked(
+                dphi_vec = signals.dphi_dop_chunked_vec(
                     t_grid_yr,
                     profile_list,
                     r0_list,
                     v_list,
-                    d_hat,
                     use_form=in_dict["USE_FORM"],
                     use_chunk=in_dict["USE_CHUNK"],
                     chunk_size=in_dict["CHUNK_SIZE"],
                     form_fun=form_fun,
+                    time_end=time_end,
+                )  # (Nt, 3)
+
+                ht_list = np.zeros((in_dict["NUM_PULSAR"], Nt))
+
+                for pul in range(in_dict["NUM_PULSAR"]):
+                    
+                    if time() > time_end: raise TimeoutError
+
+                    d_hat = dhat_list[pul]
+
+                    dphi = np.einsum("ij,j->i", dphi_vec, d_hat)
+
+                    ht = signals.subtract_signal(t_grid, dphi)
+                    ht_list[pul, :] = ht
+
+                snr_val = snr.opt_earth_snr(
+                    ht_list, in_dict["T_RMS_NS"], in_dict["DT_WEEK"]
                 )
 
-                ht = signals.subtract_signal(t_grid, dphi)
+                snr_list.append([uni_id, -1, snr_val])
 
-                snr_val = snr.opt_pulsar_snr(
-                    ht, in_dict["T_RMS_NS"], in_dict["DT_WEEK"]
-                )
-
-                snr_list.append([uni_id, pul, snr_val])
-
-            if proc_id == root_process and job == len(job_list_recv) - 1:
-                print("    Done computing SNR!")
-                print()
-                print("Returning data to main processor...")
-                print()
-
-        if in_dict["CALC_TYPE"] == "earth":
-
-            if proc_id == root_process:
-
-                print("Starting EARTH term calculation...")
-                print()
-                print("    Generating signals and computing optimal Earth SNR...")
-
-            r0_list = gsq.gen_positions(max_R, num_objects)
-
-            if in_dict["USE_HALOLIST"]:
-
-                rhos_list, rs_list, v_list = gsq.sample_halos(rhos_full, rs_full, v_full, num_objects)
-
-                profile_list = {'rs':rs_list, 'rhos':rhos_list}
-
-            else:
-
-                v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
-
-                mass_list = gsq.gen_masses(
-                    num_objects,
-                    use_HMF=in_dict["USE_HMF"],
-                    log10_M=in_dict["LOG10_M"],
-                    HMF_path=in_dict["HMF_PATH"],
-                    log10_M_min=log10_M_min,
-                )
-
-                conc_list = get_c_list(
-                    mass_list,
-                    in_dict["USE_FORM"],
-                    in_dict["USE_CM"],
-                    c=in_dict["C"],
-                    cM_path=in_dict["CM_PATH"],
-                )
-
-                profile_list = {'M':mass_list, 'c':conc_list}
-
-            dphi_vec = signals.dphi_dop_chunked_vec(
-                t_grid_yr,
-                profile_list,
-                r0_list,
-                v_list,
-                use_form=in_dict["USE_FORM"],
-                use_chunk=in_dict["USE_CHUNK"],
-                chunk_size=in_dict["CHUNK_SIZE"],
-                form_fun=form_fun,
-            )  # (Nt, 3)
-
-            ht_list = np.zeros((in_dict["NUM_PULSAR"], Nt))
-
-            for pul in range(in_dict["NUM_PULSAR"]):
-
-                d_hat = dhat_list[pul]
-
-                dphi = np.einsum("ij,j->i", dphi_vec, d_hat)
-
-                ht = signals.subtract_signal(t_grid, dphi)
-                ht_list[pul, :] = ht
-
-            snr_val = snr.opt_earth_snr(
-                ht_list, in_dict["T_RMS_NS"], in_dict["DT_WEEK"]
-            )
-
-            snr_list.append([uni_id, -1, snr_val])
-
-            if proc_id == root_process and job == len(job_list_recv) - 1:
-                print("    Done computing SNR!")
-                print()
-                print("Returning data to main processor...")
-                print()
+                if proc_id == root_process and job == len(job_list_recv) - 1:
+                    print("    Done computing SNR!")
+                    print()
+                    print("Returning data to main processor...")
+                    print()
+                    sys.stdout.flush()
+        except TimeoutError:
+            print("Process %d exceeded timelimit (t=%.2fh): finishing"%(proc_id,(time()-time_start)/3600.))
+            sys.stdout.flush()
+            break
 
 # return data back to root
 all_snr_list = comm.gather(snr_list, root=root_process)
