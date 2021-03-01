@@ -91,6 +91,7 @@ for filename in filenames:
         with open(argv[1] + "/sigma.txt", "at") as fp:
             fp.write("%s , %d , %f , %f\n"%(basename(filename),NP,snr,sigma))
     except Exception as e:
+        print(filename + ' : ' + str(e))
         continue
 
     print("%s : %s, %d universes, %s pulsars; SNR=%f; sigma=%f"%(filename, calc, NU, str(NP),snr,sigma))

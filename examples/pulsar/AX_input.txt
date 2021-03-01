@@ -83,3 +83,7 @@ V_BAR_KM_PER_SEC = 340
 
 # decription of the calculation
 RUN_DESCRIP = ax_testing
+
+# Time limit on the calculation, 0 for none.
+# If the time limit is exceeded, only the universes that have been fully simulated will be returned.
+TIMELIMIT_HOUR = 0

@@ -178,6 +178,8 @@ for job in range(len(job_list_recv)):
 
             uni_id = job_list_recv[job, 0]
 
+            snr_list_uni = []
+
             if in_dict["CALC_TYPE"] == "pulsar":
 
                 if proc_id == root_process and job == 0:
@@ -242,7 +244,7 @@ for job in range(len(job_list_recv)):
                         ht, in_dict["T_RMS_NS"], in_dict["DT_WEEK"]
                     )
 
-                    snr_list.append([uni_id, pul, snr_val])
+                    snr_list_uni.append([uni_id, pul, snr_val])
 
                 if proc_id == root_process and job == len(job_list_recv) - 1:
                     print("    Done computing SNR!")
@@ -319,7 +321,7 @@ for job in range(len(job_list_recv)):
                     ht_list, in_dict["T_RMS_NS"], in_dict["DT_WEEK"]
                 )
 
-                snr_list.append([uni_id, -1, snr_val])
+                snr_list_uni.append([uni_id, -1, snr_val])
 
                 if proc_id == root_process and job == len(job_list_recv) - 1:
                     print("    Done computing SNR!")
@@ -327,6 +329,9 @@ for job in range(len(job_list_recv)):
                     print("Returning data to main processor...")
                     print()
                     sys.stdout.flush()
+
+            snr_list.extend(snr_list_uni)
+
         except TimeoutError:
             print("Process %d exceeded timelimit (t=%.2fh): finishing"%(proc_id,(time()-time_start)/3600.))
             sys.stdout.flush()

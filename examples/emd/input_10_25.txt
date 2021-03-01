@@ -84,6 +84,10 @@ V_BAR_KM_PER_SEC = 340
 # decription of the calculation
 RUN_DESCRIP = emd_10_25
 
+# Time limit on the calculation, 0 for none.
+# If the time limit is exceeded, only the universes that have been fully simulated will be returned.
+TIMELIMIT_HOUR = 23
+
 # Use custom density profile with tabulated form factor F(x)
 # currently requires USE_HALOLIST = True
 USE_FORMTAB = True
