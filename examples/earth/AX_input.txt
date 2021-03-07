@@ -1,6 +1,6 @@
 # input parameter file for the MC
 
-# Number of realizations.
+# Number of realizations. Ideally a multiple of the number of CPUs.
 NUM_UNIVERSE = 100
 
 # log10 of the DM fraction
