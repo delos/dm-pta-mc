@@ -4,10 +4,10 @@
 NUM_UNIVERSE = 100
 
 # log10 of the DM fraction
-LOG10_F = 0.
+#LOG10_F = 0.
 
 # log10 of the DM mass. This will be ignored if USE_HMF == True.
-LOG10_M = None
+#LOG10_M = None
 
 # Number of pulsars
 NUM_PULSAR = 200
@@ -28,31 +28,31 @@ R_FACTOR = 2.
 MIN_NUM_OBJECT = 100
 
 # Flag for using a halo mass function
-USE_HMF = False
+#USE_HMF = False
 
 # Path for the table of the halo mass function, This will be ignored if USE_HMF == False.
 # For the HMF table, the 1st column should be mass in M_sun and the 2nd column should be dn / dlog10(M) in pc^-3, where n is the halo density.
-HMF_PATH = ./examples/data/sub_HMF_tid_AX1
+#HMF_PATH = ./examples/data/sub_HMF_tid_AX1
 
 # log10 minimum mass of the halo. This will be ignored if USE_HMF == False.
-LOG10_M_MIN = -12. 
+#LOG10_M_MIN = -12. 
 
-# Flag for using halos with a NFW density profile
+# Flag for using extended halos
 USE_FORM = True
 
 # Concentration parameter for the NFW halos. This will be ignored if USE_FORM == False or USE_CM == True.
-C = None
+#C = None
 
 # Concentration-Mass relation for the NFW halos. This will be ignored if USE_FORM == False.
-USE_CM = False
+#USE_CM = False
 
-# Path for the table fo the concentration-mass relation. This will be ignored if USE_FORM == False or USE_CM == False
+# Path for the table fo the concentration-mass relation. This will be ignored if USE_FORM == False or #USE_CM == False
 # For the concentration-mass table, the 1st column should be mass in M_sun and the 2nd column should be the concentration c.
-CM_PATH = .
+#CM_PATH = .
 
 # Flag for only considering a fraction of the closest halos. This speeds up the MC but might underestimate the SNR.
 # Currently not supported
-USE_CLOSEST = False
+#USE_CLOSEST = False
 
 # Percentage of the closest halos to keep. This will be ignored if USE_CLOSEST == False.
 PERCENT_CLOSEST = None
@@ -88,13 +88,16 @@ RUN_DESCRIP = emd_10_25
 # If the time limit is exceeded, only the universes that have been fully simulated will be returned.
 TIMELIMIT_HOUR = 23
 
-# Use custom density profile with tabulated form factor F(x)
-# currently requires USE_HALOLIST = True
+# Use custom density profile with tabulated form factor F(x).
+# Currently requires USE_HALOLIST = True.
+# If False, use NFW profile.
 USE_FORMTAB = True
 
-# Path for the form factor table
-# columns should be x/r_s, F*M/(rho_s*r_s^3)
-FORM_PATH = ./examples/emd/F.txt
+# Path for the form factor table.
+# Columns should be x/r_s, F*M/(rho_s*r_s^3)
+# Note: this is just the enclosed mass profile.
+# If not provided, we assume the impulsively stripped halo profile.
+#FORM_PATH = ./examples/emd/F.txt
 
 # Sample halos from table
 # currently requires USE_FORMTAB = True and N_MSUN_PER_KPC3 set
@@ -106,3 +109,10 @@ HALO_PATH = ./examples/emd/halos_10_25.txt
 
 # Enforce halo number density
 N_MSUN_PER_KPC3 = 8.91e13
+
+# Integrate the phase shift instead of using a conservative approximation.
+USE_EXACT_DPHI = True
+
+# Small-radius power law of the enclosed mass profile: M ~ r^MASS_POWER
+# Only used if USE_EXACT_DPHI = True.
+MASS_POWER = 2
