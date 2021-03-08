@@ -214,6 +214,8 @@ def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None,
     else:
         
         y = b_mag / profile['rs']
+        y.shape = (1,-1)
+        y = np.broadcast_to(y,x.shape)
         
         bd_term, vd_term = interp_table.bd_vd_terms(x, y)
     
@@ -299,6 +301,8 @@ def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None,
     else:
         
         y = b_mag / profile['rs']
+        y.shape = (1,-1)
+        y = np.broadcast_to(y,x.shape)
         
         bd_term, vd_term = interp_table.bd_vd_terms(x, y)
     
