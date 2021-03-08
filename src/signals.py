@@ -38,6 +38,7 @@ def dphi_dop_chunked(
     chunk_size=10000,
     verbose=False,
     form_fun=None,
+    interp_table=None,
     time_end=np.inf,
 ):
     """
@@ -74,11 +75,11 @@ def dphi_dop_chunked(
                 profile_c[key] = profile[key][i * chunk_size : (i + 1) * chunk_size]
 
             dphi += dphi_dop(
-                t, profile_c, r0_c, v_c, d_hat, use_form=use_form, form_fun=form_fun
+                t, profile_c, r0_c, v_c, d_hat, use_form=use_form, form_fun=form_fun, interp_table=interp_table
             )
     else:
 
-        dphi += dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=use_form, form_fun=form_fun)
+        dphi += dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=use_form, form_fun=form_fun, interp_table=interp_table)
 
     return dphi
 
@@ -93,6 +94,7 @@ def dphi_dop_chunked_vec(
     chunk_size=10000,
     verbose=False,
     form_fun=None,
+    interp_table=None,
     time_end=np.inf,
 ):
     """
@@ -129,16 +131,17 @@ def dphi_dop_chunked_vec(
                 profile_c[key] = profile[key][i * chunk_size : (i + 1) * chunk_size]
 
             dphi_vec += dphi_dop_vec(
-                t, profile_c, r0_c, v_c, use_form=use_form, form_fun=form_fun
+                t, profile_c, r0_c, v_c, use_form=use_form, form_fun=form_fun, interp_table=interp_table
             )
     else:
 
-        dphi_vec += dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=use_form, form_fun=form_fun)
+        dphi_vec += dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=use_form, form_fun=form_fun, interp_table=interp_table)
 
     return dphi_vec
 
 
-def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None):
+def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None,
+             interp_table=None):
     """
 
     Returns the vector phase shift due to the Doppler delay for subhalos of mass, mass.
@@ -163,48 +166,59 @@ def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None):
     x = np.subtract.outer(t, t0) / tau
     x0 = -t0 / tau
 
-    bd_term = (np.sqrt(1 + x ** 2) + x) - (np.sqrt(1 + x0 ** 2) + x0)  # (Nt, N)
-    vd_term = np.arcsinh(x) - np.arcsinh(x0)
-
     prefactor = (
         const.yr_to_s
         * const.GN
         / (const.km_s_to_kpc_yr * const.c_light * np.square(v_mag))
     )
 
-    if 'M' in list(profile):
-        prefactor *= profile['M']
-
-        if use_form:
-
-            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
-            x_cl = (t_cl - t0) / tau
-            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
-
-            rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
-
-            form_func = np.where(r_cl<rv, form(r_cl / rv, profile['c']), 1)  # (N)
-
-            bd_term = prefactor * form_func * bd_term
-            vd_term = prefactor * form_func * vd_term
-
+    if interp_table is None:
+        
+        bd_term = (np.sqrt(1 + x ** 2) + x) - (np.sqrt(1 + x0 ** 2) + x0)  # (Nt, N)
+        vd_term = np.arcsinh(x) - np.arcsinh(x0)
+        
+        if 'M' in list(profile):
+            prefactor *= profile['M']
+    
+            if use_form:
+    
+                t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+                x_cl = (t_cl - t0) / tau
+                r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+    
+                rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
+    
+                form_func = np.where(r_cl<rv, form(r_cl / rv, profile['c']), 1)  # (N)
+    
+                bd_term *= prefactor * form_func
+                vd_term *= prefactor * form_func
+    
+            else:
+    
+                bd_term = prefactor * bd_term
+                vd_term = prefactor * vd_term
         else:
-
-            bd_term = prefactor * bd_term
-            vd_term = prefactor * vd_term
+            if form_fun is not None:
+                t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+                x_cl = (t_cl - t0) / tau
+                r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+                
+                form_func = form_fun(r_cl, profile['rs'], profile['rhos'])
+    
+                bd_term *= prefactor * form_func
+                vd_term *= prefactor * form_func
+    
+            else:
+                raise ValueError('rho_s, r_s halo description currently requires custom density profile ("USE_FORMTAB")')
+                
     else:
-        if form_fun is not None:
-            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
-            x_cl = (t_cl - t0) / tau
-            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
-            
-            form_func = form_fun(r_cl, profile['rs'], profile['rhos'])
-
-            bd_term = prefactor * form_func * bd_term
-            vd_term = prefactor * form_func * vd_term
-
-        else:
-            raise ValueError('rho_s, r_s halo description currently requires custom density profile ("USE_FORMTAB")')
+        
+        y = b_mag / profile['rs']
+        
+        bd_term, vd_term = interp_table.bd_vd_terms(x, y)
+    
+        bd_term *= prefactor * profile['rhos'] * profile['rs']**3
+        vd_term *= prefactor * profile['rhos'] * profile['rs']**3
 
     # sum the signal over all the events
     sig = np.einsum("to, oi -> ti", bd_term, b_hat) - np.einsum(
@@ -214,7 +228,8 @@ def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None):
     return sig
 
 
-def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None):
+def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None,
+             interp_table=None):
     """
 
     Returns the phase shift due to the Doppler delay for subhalos of mass, mass
@@ -241,43 +256,53 @@ def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None):
     x = np.subtract.outer(t, t0) / tau
     x0 = -t0 / tau
 
-    bd_term = (np.sqrt(1 + x ** 2) + x) - (np.sqrt(1 + x0 ** 2) + x0)
-    vd_term = np.arcsinh(x) - np.arcsinh(x0)
-
-    sig = bd_term * b_d - vd_term * v_d
-
     prefactor = (
         const.yr_to_s
         * const.GN
         / (const.km_s_to_kpc_yr * const.c_light * np.square(v_mag))
     )
 
-    if 'M' in list(profile):
-        prefactor *= profile['M']
-
-        if use_form:
-
-            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
-            x_cl = (t_cl - t0) / tau
-            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
-
-            rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
-
-            form_func = np.where(r_cl<rv, form(r_cl / rv, profile['c']), 1)  # (N)
-
-            sig = form_func * sig
-    else:
-        if form_fun is not None:
-            t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
-            x_cl = (t_cl - t0) / tau
-            r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
-            
-            form_func = form_fun(r_cl, profile['rs'], profile['rhos'])
-
-            sig = form_func * sig
-
+    if interp_table is None:
+        
+        bd_term = (np.sqrt(1 + x ** 2) + x) - (np.sqrt(1 + x0 ** 2) + x0)
+        vd_term = np.arcsinh(x) - np.arcsinh(x0)
+    
+        sig = bd_term * b_d - vd_term * v_d
+    
+        if 'M' in list(profile):
+            prefactor *= profile['M']
+    
+            if use_form:
+    
+                t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+                x_cl = (t_cl - t0) / tau
+                r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+    
+                rv = ((3 * profile['M'] / (4 * np.pi)) * (1 / 200) * (1 / const.rho_crit)) ** (1 / 3)
+    
+                form_func = np.where(r_cl<rv, form(r_cl / rv, profile['c']), 1)  # (N)
+    
+                sig = form_func * sig
         else:
-            raise ValueError('rho_s, r_s halo description currently requires custom density profile ("USE_FORMTAB")')
+            if form_fun is not None:
+                t_cl = np.maximum(np.minimum(t0, t[-1]), 0)
+                x_cl = (t_cl - t0) / tau
+                r_cl = tau * v_mag * np.sqrt(1 + x_cl ** 2)
+                
+                form_func = form_fun(r_cl, profile['rs'], profile['rhos'])
+    
+                sig = form_func * sig
+    
+            else:
+                raise ValueError('rho_s, r_s halo description currently requires custom density profile ("USE_FORMTAB")')
+                
+    else:
+        
+        y = b_mag / profile['rs']
+        
+        bd_term, vd_term = interp_table.bd_vd_terms(x, y)
+    
+        sig = profile['rhos'] * profile['rs']**3 * (bd_term * b_d + vd_term * v_d)
 
     sig = prefactor * sig
 

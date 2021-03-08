@@ -16,6 +16,7 @@ import src.snr as snr
 import src.generate_sim_quants as gsq
 import src.constants as const
 import src.profile as profile
+import src.phase_shift_integrals as integrals
 
 #####
 
@@ -137,6 +138,19 @@ else:
     verbose=verbose,
 )
 
+# 
+if in_dict["USE_EXACT_DPHI"]:
+    if len(in_dict["FORM_PATH"]) > 0:
+        form_x, form_F = profile.form_table(in_dict["FORM_PATH"])
+        form_power = in_dict["MASS_POWER"]
+    else:
+        form_x, form_F = profile.form_table()
+        form_power = 2.
+    interp_table = integrals.dphi_interpolation_table(form_x, form_F, form_power)
+else:
+    interp_table = None
+        
+
 # custom density profiles
 if in_dict["USE_FORMTAB"]:
     form_fun = profile.prepare_form(in_dict["FORM_PATH"])
@@ -235,6 +249,7 @@ for job in range(len(job_list_recv)):
                         use_chunk=in_dict["USE_CHUNK"],
                         chunk_size=in_dict["CHUNK_SIZE"],
                         form_fun=form_fun,
+                        interp_table=interp_table,
                         time_end=time_end,
                     )
 
@@ -301,6 +316,7 @@ for job in range(len(job_list_recv)):
                     use_chunk=in_dict["USE_CHUNK"],
                     chunk_size=in_dict["CHUNK_SIZE"],
                     form_fun=form_fun,
+                    interp_table=interp_table,
                     time_end=time_end,
                 )  # (Nt, 3)
 
