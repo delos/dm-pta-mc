@@ -158,7 +158,10 @@ if in_dict["USE_FORMTAB"]:
 # list of halos
 if in_dict["USE_HALOLIST"]:
     rhos_full, rs_full, v_full = read_halos(in_dict["HALO_PATH"])
-    v_full *= const.km_s_to_kpc_yr
+    
+    if v_full is not None:
+        v_full *= const.km_s_to_kpc_yr
+    
     if not in_dict["USE_FORMTAB"]:
         raise ValueError('USE_HALOLIST currently requires custom density profile ("USE_FORMTAB")')
 
@@ -214,6 +217,10 @@ for job in range(len(job_list_recv)):
                         rhos_list, rs_list, v_list = gsq.sample_halos(rhos_full, rs_full, v_full, num_objects)
 
                         profile_list = {'rs':rs_list, 'rhos':rhos_list}
+                        
+                        if v_list is None:
+                            
+                            v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
 
                     else:
 
@@ -284,6 +291,10 @@ for job in range(len(job_list_recv)):
                     rhos_list, rs_list, v_list = gsq.sample_halos(rhos_full, rs_full, v_full, num_objects)
 
                     profile_list = {'rs':rs_list, 'rhos':rhos_list}
+                        
+                    if v_list is None:
+                        
+                        v_list = gsq.gen_velocities(v_0, v_Esc, v_E, num_objects)
 
                 else:
 

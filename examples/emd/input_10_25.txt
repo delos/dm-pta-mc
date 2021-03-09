@@ -3,10 +3,10 @@
 # Number of realizations. Ideally a multiple of the number of CPUs.
 NUM_UNIVERSE = 100
 
-# log10 of the DM fraction
+# log10 of the DM fraction. Ignored if N_MSUN_PER_KPC3 is set.
 #LOG10_F = 0.
 
-# log10 of the DM mass. This will be ignored if USE_HMF == True.
+# log10 of the DM mass. This will be ignored if USE_HMF == True or USE_HALOLIST == True.
 #LOG10_M = None
 
 # Number of pulsars
@@ -43,10 +43,10 @@ USE_FORM = True
 # Concentration parameter for the NFW halos. This will be ignored if USE_FORM == False or USE_CM == True.
 #C = None
 
-# Concentration-Mass relation for the NFW halos. This will be ignored if USE_FORM == False.
+# Use a concentration-Mass relation for the NFW halos. This will be ignored if USE_FORM == False.
 #USE_CM = False
 
-# Path for the table fo the concentration-mass relation. This will be ignored if USE_FORM == False or #USE_CM == False
+# Path for the table of the concentration-mass relation. This will be ignored if USE_FORM == False or USE_CM == False.
 # For the concentration-mass table, the 1st column should be mass in M_sun and the 2nd column should be the concentration c.
 #CM_PATH = .
 
@@ -69,16 +69,16 @@ OUTPUT_DIR = data/
 # Calculation type
 CALC_TYPE = pulsar
 
-# v0
+# v0, speed at which Maxwell-Boltzmann distribution peaks. Ignored if USE_HALOLIST == True and the halo list contains velocities.
 V_0_KM_PER_SEC = 325
 
-# Earth velocity
+# Earth velocity, unused
 V_E_KM_PER_SEC = 240
 
-# Escape velocity
+# Escape velocity, cuts off Maxwell-Boltzmann distribution. Ignored if USE_HALOLIST == True and the halo list contains velocities.
 V_ESC_KM_PER_SEC = 600
 
-# Average velocity
+# Average velocity. Only used in conjuction with R_FACTOR.
 V_BAR_KM_PER_SEC = 340
 
 # decription of the calculation
@@ -105,6 +105,7 @@ USE_HALOLIST = True
 
 # Path for the halo table
 # columns should be rho_s (Msun/kpc^3), r_s (kpc), v (km/s)
+# velocity column is optional
 HALO_PATH = ./examples/emd/halos_10_25.txt
 
 # Enforce halo number density

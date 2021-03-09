@@ -247,6 +247,9 @@ def sample_halos(rho_s, r_s, v, num_object):
     size = np.size(rho_s)
     indices = np.random.choice(size, num_object)
     
+    if v is None:
+        return rho_s[indices], r_s[indices], None
+    
     if len(np.shape(v)) == 1:
 
         velocity_r = v[indices]
@@ -260,7 +263,5 @@ def sample_halos(rho_s, r_s, v, num_object):
 
         return rho_s[indices], r_s[indices], velocity.T
 
-    else:
-
-        return rho_s[indices], r_s[indices], v[indices]
+    return rho_s[indices], r_s[indices], v[indices]
 

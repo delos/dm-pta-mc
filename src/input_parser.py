@@ -65,7 +65,11 @@ def read_halos(path):
     """
 
     data = np.loadtxt(path)
-    return data[:,0], data[:,1], data[:,2]
+    
+    if data.shape[1] > 2:
+      return data[:,0], data[:,1], data[:,2]
+    else:
+      return data[:,0], data[:,1], None
 
 def read_form(path):
     """
