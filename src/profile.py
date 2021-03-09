@@ -10,14 +10,14 @@ from scipy.special import hyp2f1
 from src.input_parser import read_form
 
 
-def prepare_form(form_path):
+def prepare_form(form_path, verbose=False):
     """
 
     Prepares interpolator for form factor
 
     """
 
-    x, F = form_table(form_path)
+    x, F = form_table(form_path, verbose=verbose)
 
     logx_ = np.log(x)
     logF_ = np.log(F)
@@ -52,14 +52,18 @@ def postencounter_density_profile(x):
     return np.exp(-1./alpha * x**alpha * (1+q)**(1-1/beta) * hyp2f1(1,1,1+1/beta,-q))/x
 
 
-def form_table(form_path=None):
+def form_table(form_path=None, verbose=False):
     
     if form_path is not None and len(form_path) > 0:
+        if verbose: print('    Reading form factor from "%s"'%form_path)
         x, F = read_form(form_path)
         
     else: # use default
+        if verbose: print('    Using default form factor (postencounter density profile)')
         x = np.geomspace(1e-12,1e15,10000)
         rho = postencounter_density_profile(x)
         F = cumtrapz(4*np.pi*x**3 * rho,x=np.log(x),initial=0) + 2*np.pi*x[0]**2
+
+    if verbose: print()
         
     return x, F

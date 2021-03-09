@@ -153,7 +153,7 @@ else:
 
 # custom density profiles
 if in_dict["USE_FORMTAB"]:
-    form_fun = profile.prepare_form(in_dict["FORM_PATH"])
+    form_fun = profile.prepare_form(in_dict["FORM_PATH"], verbose=verbose)
 
 # list of halos
 if in_dict["USE_HALOLIST"]:
