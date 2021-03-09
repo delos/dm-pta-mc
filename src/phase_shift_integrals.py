@@ -54,7 +54,7 @@ class dphi_interpolation_table(object):
         self.headon_ylim = self.ymin**0.5
         
         # l=xy grid (for head-on integral)
-        self.Nl = int(np.round(np.sqrt(self.Nx*self.Ny)))
+        self.Nl = self.Nx
         self.lmin = self.r_[0]
         self.lmax = self.r_[-1]
         self.l_ = np.geomspace(self.lmin,self.lmax,self.Nl)
@@ -67,31 +67,29 @@ class dphi_interpolation_table(object):
             raise ValueError('Maximum radius in mass table must be %g or greater'%(self.ymax * np.sqrt(1+self.xmax**2)))
         if self.ymin < self.r_[0]:
             raise ValueError('Minimum radius in mass table must be %g or smaller'%(self.ymin))
-          
-        self.sqrt1x = np.sqrt(1+self.x_**2)
-        self.Mlist = self.mass_profile(self.y_.reshape((1,self.Ny))*self.sqrt1x.reshape((self.Nx,1)))
     
-    def integrate_bdterm(self):
+    def integrate_bd_vd_terms(self):
+          
+        sqrt1x = np.sqrt(1+self.x_**2)
+        Mlist = self.mass_profile(self.y_.reshape((1,self.Ny))*sqrt1x.reshape((self.Nx,1)))
         
-        bdterm_integrand = self.Mlist * (1./self.sqrt1x**3).reshape((self.Nx,1))
+        bdterm_integrand = Mlist * (1./sqrt1x**3).reshape((self.Nx,1))
         bdterm_integral = cumtrapz(bdterm_integrand,x=self.x_,axis=0,initial=0) + bdterm_integrand[np.array([0])] * self.x_[0]
-        self.bdterm_ = cumtrapz(bdterm_integral,x=self.x_,axis=0,initial=0) + 0.5 * bdterm_integral[np.array([0])] * self.x_[0]
-        self.bdterm_int_xmax = bdterm_integral[-1]
-      
-    def integrate_vdterm(self):
+        self.bdterm_ = np.log(cumtrapz(bdterm_integral,x=self.x_,axis=0,initial=0) + 0.5 * bdterm_integral[np.array([0])] * self.x_[0]).astype(np.float32)
+        self.bdterm_int_xmax = np.log(bdterm_integral[-1])
         
-        vdterm_integrand = self.Mlist * (self.x_/self.sqrt1x**3).reshape((self.Nx,1))
+        vdterm_integrand = Mlist * (self.x_/sqrt1x**3).reshape((self.Nx,1))
         vdterm_integral = cumtrapz(vdterm_integrand,x=self.x_,axis=0,initial=0) + 0.5 * vdterm_integrand[np.array([0])] * self.x_[0]
-        self.vdterm_ = cumtrapz(vdterm_integral,x=self.x_,axis=0,initial=0) + 1./3*vdterm_integral[np.array([0])] * self.x_[0]
-        self.vdterm_int_xmax = vdterm_integral[-1]
+        self.vdterm_ = np.log(cumtrapz(vdterm_integral,x=self.x_,axis=0,initial=0) + 1./3*vdterm_integral[np.array([0])] * self.x_[0]).astype(np.float32)
+        self.vdterm_int_xmax = np.log(vdterm_integral[-1])
     
     def integrate_headon(self):
         headon_integrand = self.mass_profile(self.l_)/self.l_**2
         headon_integral = cumtrapz(headon_integrand,x=self.l_,initial=0) + headon_integrand[0]*self.l_[0] / (self.Mpower-1)
-        self.headon_ = cumtrapz(headon_integral,x=self.l_,initial=0) + headon_integral[0]*self.l_[0] / self.Mpower
+        self.headon_ = np.log(cumtrapz(headon_integral,x=self.l_,initial=0) + headon_integral[0]*self.l_[0] / self.Mpower)
         self.headon_int_lmax = headon_integral[-1]
     
-    def __init__(self, r, M, Mpower, Nx=1000, Ny=1000, xmin=1e-5, xmax=1e5, ymin=1e-5, ymax = 1e5):
+    def __init__(self, r, M, Mpower, Nx=100000, Ny=100, xmin=1e-5, xmax=1e5, ymin=1e-5, ymax = 1e5):
         
         self.prepare_mass(r, M, Mpower)
         
@@ -99,9 +97,7 @@ class dphi_interpolation_table(object):
         
         self.check_mass()
         
-        self.integrate_bdterm()
-        
-        self.integrate_vdterm()
+        self.integrate_bd_vd_terms()
         
         self.integrate_headon()
     
@@ -122,7 +118,7 @@ class dphi_interpolation_table(object):
         i = (np.log(l) - self.lnlmin) / (self.lnlmax - self.lnlmin) * (self.Nl-1)
         ii = i.astype(int)
         f = i - ii
-        return self.headon_[ii]*(1-f) + self.headon_[ii+1]*f
+        return np.exp(self.headon_[ii]*(1-f) + self.headon_[ii+1]*f)
     
     """
     Interpolate main tables
@@ -132,8 +128,8 @@ class dphi_interpolation_table(object):
         i = (np.log(x) - self.lnxmin) / (self.lnxmax - self.lnxmin) * (self.Nx-1)
         j = (np.log(y) - self.lnymin) / (self.lnymax - self.lnymin) * (self.Ny-1)
         return (
-            map_coordinates(self.bdterm_, np.asarray([i,j]), order=1),
-            map_coordinates(self.vdterm_, np.asarray([i,j]), order=1),
+            np.exp(map_coordinates(self.bdterm_, np.asarray([i,j]), order=1)),
+            np.exp(map_coordinates(self.vdterm_, np.asarray([i,j]), order=1)),
             )
   
     """
@@ -174,7 +170,7 @@ class dphi_interpolation_table(object):
             0., # bd term is subdominant to vd term anyway
             np.piecewise(l,[l<self.lmax*.99],[
                 self.headon_table,
-                lambda l: self.headon_[-1] + self.headon_int_lmax*(l-self.lmax)
+                lambda l: np.exp(self.headon_[-1]) + self.headon_int_lmax*(l-self.lmax)
                 ]),
             )
     
@@ -185,10 +181,10 @@ class dphi_interpolation_table(object):
         i = (np.log(y) - self.lnymin) / (self.lnymax - self.lnymin) * (self.Ny-1)
         ii = i.astype(int)
         f = i - ii
-        bdterm_xmax = self.bdterm_[-1,ii]*(1-f) + self.bdterm_[-1,ii+1]*f
-        vdterm_xmax = self.vdterm_[-1,ii]*(1-f) + self.vdterm_[-1,ii+1]*f
-        bdterm_int_xmax = self.bdterm_int_xmax[ii]*(1-f) + self.bdterm_int_xmax[ii+1]*f
-        vdterm_int_xmax = self.vdterm_int_xmax[ii]*(1-f) + self.vdterm_int_xmax[ii+1]*f
+        bdterm_xmax = np.exp(self.bdterm_[-1,ii]*(1-f) + self.bdterm_[-1,ii+1]*f)
+        vdterm_xmax = np.exp(self.vdterm_[-1,ii]*(1-f) + self.vdterm_[-1,ii+1]*f)
+        bdterm_int_xmax = np.exp(self.bdterm_int_xmax[ii]*(1-f) + self.bdterm_int_xmax[ii+1]*f)
+        vdterm_int_xmax = np.exp(self.vdterm_int_xmax[ii]*(1-f) + self.vdterm_int_xmax[ii+1]*f)
         return (
             bdterm_xmax + (x-self.xmax) * bdterm_int_xmax,
             vdterm_xmax + (x-self.xmax) * vdterm_int_xmax,

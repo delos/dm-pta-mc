@@ -214,10 +214,16 @@ def dphi_dop_vec(t, profile, r0_vec, v_vec, use_form=False, form_fun=None,
     else:
         
         y = b_mag / profile['rs']
+        
+        bd_term0, vd_term0 = interp_table.bd_vd_terms(x0, y)
+        
         y.shape = (1,-1)
         y = np.broadcast_to(y,x.shape)
         
         bd_term, vd_term = interp_table.bd_vd_terms(x, y)
+        
+        bd_term -= bd_term0
+        vd_term -= vd_term0
     
         bd_term *= prefactor * profile['rhos'] * profile['rs']**3
         vd_term *= prefactor * profile['rhos'] * profile['rs']**3
@@ -301,10 +307,16 @@ def dphi_dop(t, profile, r0_vec, v_vec, d_hat, use_form=False, form_fun=None,
     else:
         
         y = b_mag / profile['rs']
+        
+        bd_term0, vd_term0 = interp_table.bd_vd_terms(x0, y)
+        
         y.shape = (1,-1)
         y = np.broadcast_to(y,x.shape)
         
         bd_term, vd_term = interp_table.bd_vd_terms(x, y)
+        
+        bd_term -= bd_term0
+        vd_term -= vd_term0
     
         sig = profile['rhos'] * profile['rs']**3 * (bd_term * b_d + vd_term * v_d)
 
